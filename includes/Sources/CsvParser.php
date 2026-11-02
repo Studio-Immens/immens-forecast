@@ -123,22 +123,25 @@ final class CsvParser {
 	/**
 	 * Split a line into tokens.
 	 *
-	 * Whitespace and semicolons always separate. A comma separates a leading
-	 * date from its value, but a comma inside the value is kept so decimal
-	 * commas such as "12,5" survive for to_value().
+	 * A comma directly after a date-shaped prefix separates the date from its
+	 * value (surrounding whitespace is ignored), so "2026-01-01, 10" and
+	 * "2026-01-01 ,10" yield the date plus the value. Any other comma is kept,
+	 * so decimal commas such as "12,5" survive for to_value(). Remaining parts
+	 * are split on whitespace and semicolons.
 	 *
 	 * @param string $line Line.
 	 * @return string[]
 	 */
 	private static function tokenize( string $line ): array {
-		$parts  = preg_split( '/[\s;]+/', $line, -1, PREG_SPLIT_NO_EMPTY );
 		$tokens = array();
-		foreach ( (array) $parts as $part ) {
-			if ( preg_match( '/^(\d{4}-\d{1,2}-\d{1,2}|\d{1,2}\/\d{1,2}\/\d{4})\s*,\s*(.+)$/', $part, $match ) ) {
-				$tokens[] = $match[1];
-				$tokens[] = $match[2];
-				continue;
-			}
+		$line   = trim( $line );
+
+		if ( preg_match( '/^(\d{4}-\d{1,2}-\d{1,2}|\d{1,2}\/\d{1,2}\/\d{4}|\d{8})\s*,\s*(.*)$/', $line, $match ) ) {
+			$tokens[] = $match[1];
+			$line     = $match[2];
+		}
+
+		foreach ( (array) preg_split( '/[\s;]+/', $line, -1, PREG_SPLIT_NO_EMPTY ) as $part ) {
 			$tokens[] = $part;
 		}
 		return $tokens;

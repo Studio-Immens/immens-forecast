@@ -73,4 +73,24 @@ final class CsvParserTest extends TestCase {
 		self::assertNull( CsvParser::parse_date( 'not-a-date' ) );
 		self::assertNull( CsvParser::parse_date( '2026-02-30' ) );
 	}
+
+	public function test_comma_with_space_between_date_and_value(): void {
+		self::assertSame( array( array( 'd' => '2026-01-01', 'v' => 10.0 ) ), CsvParser::parse( '2026-01-01, 10' ) );
+
+		$points = CsvParser::parse( "2026-01-01, 10\n2026-01-02,20" );
+		self::assertSame( array( '2026-01-01', '2026-01-02' ), array_column( $points, 'd' ) );
+		self::assertSame( array( 10.0, 20.0 ), array_column( $points, 'v' ) );
+
+		$points = CsvParser::parse( "2026-01-01, 10\n2026-01-02, 20" );
+		self::assertSame( array( '2026-01-01', '2026-01-02' ), array_column( $points, 'd' ) );
+		self::assertSame( array( 10.0, 20.0 ), array_column( $points, 'v' ) );
+	}
+
+	public function test_space_before_comma_keeps_full_value(): void {
+		self::assertSame( array( array( 'd' => '2026-01-01', 'v' => 10.0 ) ), CsvParser::parse( '2026-01-01 ,10' ) );
+	}
+
+	public function test_compact_date_with_comma_is_invalid_date(): void {
+		self::assertSame( 'immens_forecast_csv_invalid_date', CsvParser::parse( '20260101,5' )->get_error_code() );
+	}
 }
