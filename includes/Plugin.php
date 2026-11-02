@@ -7,6 +7,8 @@
 
 namespace ImmensForecast;
 
+use ImmensForecast\Forecast\Engine;
+
 defined( 'ABSPATH' ) || exit;
 
 /**
@@ -20,13 +22,6 @@ final class Plugin {
 	 * @var Plugin|null
 	 */
 	private static $instance = null;
-
-	/**
-	 * Forecast engine (wired in boot(), from Task 12).
-	 *
-	 * @var Forecast\Engine|null
-	 */
-	private $engine = null;
 
 	/**
 	 * Get the singleton.
@@ -55,12 +50,12 @@ final class Plugin {
 	}
 
 	/**
-	 * Forecast engine accessor (full wiring lands in Task 12).
+	 * Forecast engine.
 	 *
-	 * @return Forecast\Engine|null
+	 * @return Engine
 	 */
-	public function engine() {
-		return $this->engine;
+	public function engine(): Engine {
+		return new Engine();
 	}
 
 	/**

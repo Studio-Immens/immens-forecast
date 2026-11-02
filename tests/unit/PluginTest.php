@@ -8,6 +8,7 @@
 namespace ImmensForecast\Tests\Unit;
 
 use Brain\Monkey\Functions;
+use ImmensForecast\Forecast\Engine;
 
 /**
  * Verify constants, autoloader and singleton.
@@ -29,5 +30,12 @@ final class PluginTest extends TestCase {
 
 	public function test_autoloader_is_registered(): void {
 		self::assertTrue( class_exists( 'ImmensForecast\\Plugin' ) );
+	}
+
+	/**
+	 * The engine accessor returns a usable engine instance.
+	 */
+	public function test_engine_returns_engine_instance(): void {
+		self::assertInstanceOf( Engine::class, \ImmensForecast\Plugin::instance()->engine() );
 	}
 }
