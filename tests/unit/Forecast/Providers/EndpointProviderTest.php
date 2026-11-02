@@ -246,4 +246,44 @@ final class EndpointProviderTest extends TestCase {
 
 		self::assertSame( 'immens_forecast_endpoint_http', $result->get_error_code() );
 	}
+
+	public function test_models_returns_normalized_list(): void {
+		$this->configure( array( 'endpoint_url' => 'https://forecast.example.com' ) );
+		Functions\when( 'wp_remote_get' )->justReturn(
+			array(
+				'response' => array( 'code' => 200 ),
+				'body'     => json_encode(
+					array(
+						'models' => array(
+							array(
+								'alias'  => '28m',
+								'hub_id' => 'a/28m',
+							),
+							array( 'alias' => '209m' ),
+						),
+					)
+				),
+			)
+		);
+
+		$result = ( new EndpointProvider() )->models();
+
+		self::assertCount( 2, $result['models'] );
+		self::assertSame( '28m', $result['models'][0]['alias'] );
+		self::assertSame( '', $result['models'][1]['hub_id'] );
+	}
+
+	public function test_models_http_error(): void {
+		$this->configure( array( 'endpoint_url' => 'https://forecast.example.com' ) );
+		Functions\when( 'wp_remote_get' )->justReturn(
+			array(
+				'response' => array( 'code' => 500 ),
+				'body'     => '',
+			)
+		);
+
+		$result = ( new EndpointProvider() )->models();
+
+		self::assertSame( 'immens_forecast_endpoint_http', $result->get_error_code() );
+	}
 }

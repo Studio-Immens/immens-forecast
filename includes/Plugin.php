@@ -47,6 +47,10 @@ final class Plugin {
 	 */
 	public function boot(): void {
 		load_plugin_textdomain( 'immens-forecast', false, dirname( plugin_basename( IMMENS_FORECAST_FILE ) ) . '/languages' );
+
+		if ( wp_doing_ajax() ) {
+			Admin\Ajax::register();
+		}
 	}
 
 	/**

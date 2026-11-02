@@ -353,4 +353,60 @@ final class EndpointProvider implements ProviderInterface {
 		}
 		return $out;
 	}
+
+	/**
+	 * List the models exposed by the endpoint (§4.4).
+	 *
+	 * @return array|\WP_Error
+	 */
+	public function models() {
+		$base = $this->base_url();
+		if ( '' === $base ) {
+			return new \WP_Error( 'immens_forecast_provider_unavailable', __( 'No endpoint URL is configured.', 'immens-forecast' ) );
+		}
+
+		$response = wp_remote_get(
+			$base . '/v1/models',
+			array(
+				'timeout'   => $this->timeout(),
+				'sslverify' => $this->sslverify(),
+				'headers'   => $this->headers(),
+			)
+		);
+
+		$error = $this->transport_error( $response );
+		if ( null !== $error ) {
+			return $error;
+		}
+
+		$status = (int) wp_remote_retrieve_response_code( $response );
+		if ( $status < 200 || $status >= 300 ) {
+			return $this->http_error( $status );
+		}
+
+		$data = json_decode( (string) wp_remote_retrieve_body( $response ), true );
+		if ( ! is_array( $data ) ) {
+			return new \WP_Error( 'immens_forecast_endpoint_bad_response', __( 'The endpoint did not return a valid model list.', 'immens-forecast' ) );
+		}
+
+		$items  = ( isset( $data['models'] ) && is_array( $data['models'] ) ) ? $data['models'] : $data;
+		$models = array();
+		foreach ( $items as $item ) {
+			if ( is_string( $item ) ) {
+				$models[] = array(
+					'alias'  => $item,
+					'hub_id' => '',
+				);
+				continue;
+			}
+			if ( is_array( $item ) && isset( $item['alias'] ) ) {
+				$models[] = array(
+					'alias'  => (string) $item['alias'],
+					'hub_id' => isset( $item['hub_id'] ) ? (string) $item['hub_id'] : '',
+				);
+			}
+		}
+
+		return array( 'models' => $models );
+	}
 }
