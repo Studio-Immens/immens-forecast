@@ -3,5 +3,8 @@
 
 # Build artifacts
 dist/
-vendor/
-node_modules/
+/vendor/
+/tools/
+/node_modules/
+/build/
+.phpunit.result.cache

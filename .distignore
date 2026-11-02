@@ -1,0 +1,16 @@
+.git
+.github
+.gitignore
+.gitattributes
+.distignore
+composer.json
+composer.lock
+phpcs.xml.dist
+phpunit.xml.dist
+tests
+docs
+tools
+vendor
+node_modules
+build
+CHANGELOG.md
