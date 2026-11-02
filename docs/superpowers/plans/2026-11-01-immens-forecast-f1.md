@@ -9528,6 +9528,8 @@ Expected: clean commit.
 - Create: `readme.txt`
 - Create: `README.md`
 - Create: `tools/build-zip.ps1`
+- Create: `tools/build-zip.sh` (executable; `git update-index --chmod=+x tools/build-zip.sh` after staging — required by the CI `package` job)
+- Create: `languages/.gitkeep` (git cannot track an empty directory, and the plugin header declares `Domain Path: /languages`; the placeholder keeps the shipped structure consistent with Step 5's expected listing, even though no `.pot` ships in F1)
 - Create: `.github/workflows/ci.yml`
 
 **Interfaces:**
