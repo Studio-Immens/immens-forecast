@@ -18,7 +18,7 @@ composer lint   # PHPCS with WordPress-Core/Extra + PHPCompatibilityWP
 powershell -ExecutionPolicy Bypass -File tools\build-zip.ps1
 ```
 
-Creates `dist/immens-forecast-<version>.zip` honouring `.distignore`.
+Creates `dist/immens-forecast-<version>.zip`. Build exclusions are defined in the build scripts, mirroring `.distignore`.
 
 ## Translations
 

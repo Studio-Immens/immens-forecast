@@ -17,8 +17,8 @@ Immens Forecast projects future sales and any numeric time series, directly from
 * **Offline baseline model** – get probabilistic forecasts (median plus configurable quantiles) with zero external services.
 * **WooCommerce source** – forecast revenue, orders or product counts from your store history.
 * **Manual CSV datasets** – paste dated values (or bare values) and forecast them immediately.
-* **Bring your own endpoint** – connect any service exposing the timestral-api style `/forecast`, `/health` and `/models` routes with a bearer token.
-* **Caching and safety rails** – results are cached, requests are locked per series and rate-limit errors surface clearly.
+* **Bring your own endpoint** – connect any service exposing the timestral-api style `/v1/forecast`, `/health` and `/v1/models` routes with a bearer token.
+* **Caching and safety rails** – results are cached, requests are locked per user and rate-limit errors surface clearly.
 
 The plugin works standalone and does not require an account. Your data stays on your site unless you explicitly configure an external endpoint.
 
