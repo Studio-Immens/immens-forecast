@@ -1,0 +1,7 @@
+# SDD workspace (subagent-driven-development)
+.superpowers/
+
+# Build artifacts
+dist/
+vendor/
+node_modules/

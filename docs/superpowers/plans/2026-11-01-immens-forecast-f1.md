@@ -101,6 +101,7 @@ Expected: `Composer version 2.x.y ...`.
 `.distignore`:
 ```
 .git
+.superpowers
 .github
 .gitignore
 .gitattributes
@@ -9568,7 +9569,7 @@ $target = Join-Path $stage "immens-forecast"
 New-Item -ItemType Directory -Path $target -Force | Out-Null
 
 $exclude = @(
-	".git", ".github", ".gitignore", ".gitattributes", ".distignore",
+	".git", ".superpowers", ".github", ".gitignore", ".gitattributes", ".distignore",
 	"composer.json", "composer.lock", "phpcs.xml.dist", "phpunit.xml.dist",
 	"tests", "docs", "tools", "vendor", "node_modules", "build", "dist",
 	"CHANGELOG.md", "README.md"
@@ -9675,6 +9676,7 @@ mkdir -p "$stage/immens-forecast"
 
 cd "$root"
 tar --exclude='./.git' \
+	--exclude='./.superpowers' \
 	--exclude='./.github' \
 	--exclude='./.gitignore' \
 	--exclude='./.gitattributes' \
