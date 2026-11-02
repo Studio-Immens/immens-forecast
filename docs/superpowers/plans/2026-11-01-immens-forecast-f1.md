@@ -8785,6 +8785,20 @@ $settings = isset( $args['settings'] ) ? (array) $args['settings'] : array();
 			</tr>
 		</table>
 
+		<h2><?php echo esc_html__( 'Data', 'immens-forecast' ); ?></h2>
+		<table class="form-table" role="presentation">
+			<tr>
+				<th scope="row"><?php echo esc_html__( 'Uninstall', 'immens-forecast' ); ?></th>
+				<td>
+					<input type="hidden" name="delete_data_on_uninstall" value="0">
+					<label for="immens-forecast-setting-delete">
+						<input id="immens-forecast-setting-delete" name="delete_data_on_uninstall" type="checkbox" value="1" <?php checked( ! empty( $settings['delete_data_on_uninstall'] ) ); ?>>
+						<?php echo esc_html__( 'Delete all forecast data when the plugin is uninstalled.', 'immens-forecast' ); ?>
+					</label>
+				</td>
+			</tr>
+		</table>
+
 		<?php submit_button( __( 'Save settings', 'immens-forecast' ) ); ?>
 	</form>
 
@@ -9274,12 +9288,12 @@ $settings = isset( $args['settings'] ) ? (array) $args['settings'] : array();
 
 ```powershell
 New-Item -ItemType Directory -Force "assets\vendor" | Out-Null
-Invoke-WebRequest -Uri "https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.umd.min.js" -OutFile "assets\vendor\chart.umd.min.js"
+Invoke-WebRequest -Uri "https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js" -OutFile "assets\vendor\chart.umd.min.js"
 (Get-Item "assets\vendor\chart.umd.min.js").Length
 (Get-FileHash "assets\vendor\chart.umd.min.js" -Algorithm SHA256).Hash | Set-Content "assets\vendor\chart.umd.min.js.sha256"
 ```
 
-Expected: size >= 150000 bytes (Chart.js 3.9.1 UMD ≈ 200 KB). The `.sha256` file pins the artifact for CI and release packaging (Task 16). If the download is unavailable, fall back to `npm pack chart.js@3.9.1` and extract `package/dist/chart.umd.min.js`.
+Expected: size >= 150000 bytes (Chart.js 3.9.1 UMD ≈ 195 KB; observed 199560 bytes, SHA-256 `FBC45926E6B46845A0F905552A0E0B1331049BFF1115ECF94DBE0904D895E710`). The `.sha256` file pins the artifact for CI and release packaging (Task 16). If the download is unavailable, fall back to `npm pack chart.js@3.9.1` and extract `package/dist/chart.min.js`. [Corrected during execution: Chart.js 3.x ships the UMD bundle as `dist/chart.min.js`; `dist/chart.umd.min.js` is a v4 filename and 404s on the 3.9.1 tag — the local filename stays `chart.umd.min.js` as referenced by `Page::enqueue()` and Task 16.]
 
 - [ ] **Step 6: CSV import and dataset deletion handlers**
 
