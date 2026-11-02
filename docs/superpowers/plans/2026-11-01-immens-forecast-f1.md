@@ -4325,7 +4325,7 @@ Expected: `OK (11 tests)` then `0 errors`.
 - Consumes: WordPress `apply_filters` (registry build).
 - Produces:
   - `ImmensForecast\Forecast\Providers\ProviderInterface` — `get_id()`, `get_label()`, `get_description()`, `get_capabilities()`, `is_available()`, `forecast( array $series, int $horizon, array $options )` (array|\WP_Error), `health()` (array|\WP_Error). Capability keys: `max_horizon`, `max_series`, `max_context`, `supports_multi_series`, `supports_known_covariates`, `supports_past_covariates`, `supports_categorical`, `quantile_levels` (float[]), `requires_remote` (bool).
-  - `ImmensForecast\Forecast\Providers\ProviderRegistry` — `add()`, `get()`, `has()`, `all()`, `ids()`, `available()`, static `build()` reading the `immens_forecast_providers` filter (default empty; the free plugin registers `baseline` and `endpoint` in Task 15; non-`ProviderInterface` values are ignored).
+  - `ImmensForecast\Forecast\Providers\ProviderRegistry` — `add()`, `get()`, `has()`, `all()`, `ids()`, `available()`, static `build()` reading the `immens_forecast_providers` filter (default empty; the free plugin registers `baseline` and `endpoint` in Task 14; non-`ProviderInterface` values are ignored).
 
 - [ ] **Step 1: Write the interface, the stub and the failing registry tests**
 
@@ -8046,7 +8046,7 @@ if ( wp_doing_ajax() ) {
 - Produces:
   - `ImmensForecast\Admin\Page`: `register()` (menu top-level `immens-forecast` + submenus `immens-forecast`, `immens-forecast-settings`; extra submenus via `immens_forecast_admin_menu` filter with items `['title' => string, 'slug' => string, 'callback' => callable]`), `enqueue( string $hook )`, `render_forecast()`, `render_settings()`, `handle_save()` (admin_post `immens_forecast_save_settings`), `template_path( string $template ): string` (filter `immens_forecast_template_path`, falls back to the bundled template when the filtered path does not exist).
   - Templates receive `$args` from `render_*`: forecast page gets `sources` (id ⇒ `['label','description','metrics']`), `providers`, `defaults` (provider, horizon, quantiles, history_days), `endpoint_configured`; settings page gets `settings` (with the token replaced by a non-empty placeholder when a token exists), `providers`, `datasets`.
-- Decisions: chart + dashboard live in `admin.js` with `window.immensForecast = {ajaxUrl, nonce, i18n}`; Chart.js is bundled (no CDN, w.org-safe); the settings form posts to `admin-post.php` (`immens_forecast_save_settings`); ESC/localization via `wp_set_script_translations`.
+- Decisions: chart + dashboard live in `admin.js` with `window.immensForecast = {ajaxUrl, nonce, i18n}`; Chart.js is bundled (no CDN, w.org-safe); the settings form posts to `admin-post.php` (`immens_forecast_save_settings`); ESC/localization via `wp_set_script_translations`. This task also **registers the four bundled components** — sources `woo` and `manual`, providers `baseline` and `endpoint` — in `Plugin::boot()` via `add_filter( 'immens_forecast_sources', … )` and `add_filter( 'immens_forecast_providers', … )`, covered by a regression test in `tests/unit/PluginTest.php`. [Corrected during execution: the plan previously claimed (Task 9 interfaces) that Task 15 registers the providers, but Task 15 only writes `uninstall.php`, and `add_filter` appeared nowhere in the plan — nothing would ever have registered the sources or providers, so every forecast would have failed with `immens_forecast_source_unavailable` / `immens_forecast_provider_unavailable` and the admin dropdowns would have been empty.]
 
 - [ ] **Step 1: Write the failing admin page tests**
 
@@ -9349,26 +9349,97 @@ Append to `includes/Admin/Page.php` (and add `use ImmensForecast\Sources\CsvPars
 	}
 ```
 
-Then wire everything in `includes/Plugin.php` `boot()`:
+- [ ] **Step 7: Test, then register the bundled sources and providers in `boot()`**
+
+Append this regression test to `tests/unit/PluginTest.php` (it must FAIL first, before the wiring below exists):
 
 ```php
-add_action( 'admin_menu', array( Admin\Page::class, 'register' ) );
-add_action( 'admin_enqueue_scripts', array( Admin\Page::class, 'enqueue' ) );
-add_action( 'admin_post_immens_forecast_save_settings', array( Admin\Page::class, 'handle_save' ) );
-add_action( 'admin_post_immens_forecast_import_csv', array( Admin\Page::class, 'handle_import' ) );
-add_action( 'admin_post_immens_forecast_delete_dataset', array( Admin\Page::class, 'handle_delete_dataset' ) );
+	/**
+	 * Boot registers the bundled sources and providers.
+	 */
+	public function test_boot_registers_core_sources_and_providers(): void {
+		$captured = array();
+
+		Functions\when( 'load_plugin_textdomain' )->justReturn( true );
+		Functions\when( 'plugin_basename' )->justReturn( 'immens-forecast/immens-forecast.php' );
+		Functions\when( 'wp_doing_ajax' )->justReturn( false );
+		Functions\when( 'add_action' )->justReturn( null );
+		Functions\when( 'add_filter' )->alias(
+			static function ( $tag, $callback ) use ( &$captured ) {
+				$captured[ $tag ] = $callback;
+				return null;
+			}
+		);
+
+		\ImmensForecast\Plugin::instance()->boot();
+
+		self::assertArrayHasKey( 'immens_forecast_sources', $captured );
+		self::assertArrayHasKey( 'immens_forecast_providers', $captured );
+
+		$sources = call_user_func( $captured['immens_forecast_sources'], array() );
+		self::assertCount( 2, $sources );
+		self::assertInstanceOf( \ImmensForecast\Sources\WooSource::class, $sources[0] );
+		self::assertInstanceOf( \ImmensForecast\Sources\ManualSource::class, $sources[1] );
+
+		$providers = call_user_func( $captured['immens_forecast_providers'], array() );
+		self::assertCount( 2, $providers );
+		self::assertInstanceOf( \ImmensForecast\Forecast\Providers\BaselineProvider::class, $providers[0] );
+		self::assertInstanceOf( \ImmensForecast\Forecast\Providers\EndpointProvider::class, $providers[1] );
+	}
 ```
 
-- [ ] **Step 7: Run the tests, PHPCS and commit**
+```powershell
+tools\php-cli.cmd vendor\phpunit\phpunit\phpunit --configuration phpunit.xml.dist --filter test_boot_registers_core_sources_and_providers
+```
+
+Expected: FAIL — `Failed asserting that an array has the key 'immens_forecast_sources'`.
+
+Then wire everything in `includes/Plugin.php` `boot()` (append to the existing body, after the `wp_doing_ajax()` block):
+
+```php
+		add_action( 'admin_menu', array( Admin\Page::class, 'register' ) );
+		add_action( 'admin_enqueue_scripts', array( Admin\Page::class, 'enqueue' ) );
+		add_action( 'admin_post_immens_forecast_save_settings', array( Admin\Page::class, 'handle_save' ) );
+		add_action( 'admin_post_immens_forecast_import_csv', array( Admin\Page::class, 'handle_import' ) );
+		add_action( 'admin_post_immens_forecast_delete_dataset', array( Admin\Page::class, 'handle_delete_dataset' ) );
+
+		add_filter(
+			'immens_forecast_sources',
+			static function ( array $sources ) {
+				$sources[] = new Sources\WooSource();
+				$sources[] = new Sources\ManualSource();
+				return $sources;
+			}
+		);
+
+		add_filter(
+			'immens_forecast_providers',
+			static function ( array $providers ) {
+				$providers[] = new Forecast\Providers\BaselineProvider();
+				$providers[] = new Forecast\Providers\EndpointProvider();
+				return $providers;
+			}
+		);
+```
+
+```powershell
+tools\php-cli.cmd vendor\phpunit\phpunit\phpunit --configuration phpunit.xml.dist --filter test_boot_registers_core_sources_and_providers
+```
+
+Expected: `OK (1 test)`.
+
+- [ ] **Step 8: Run the tests, PHPCS and commit**
 
 ```powershell
 tools\php-cli.cmd vendor\phpunit\phpunit\phpunit --configuration phpunit.xml.dist --filter PageTest
+tools\php-cli.cmd vendor\phpunit\phpunit\phpunit --configuration phpunit.xml.dist --filter PluginTest
+tools\php-cli.cmd vendor\phpunit\phpunit\phpunit --configuration phpunit.xml.dist
 tools\php-cli.cmd vendor\squizlabs\php_codesniffer\bin\phpcs --standard=phpcs.xml.dist
 git add -A
 git commit -m "feat(admin): add forecast UI, settings screen and assets"
 ```
 
-Expected: `OK (7 tests)`, then `0 errors`.
+Expected: `OK (7 tests)` for PageTest, `OK (5 tests)` for PluginTest, full suite green (142 tests), then `0 errors`.
 
 ### Task 15: Uninstall and data lifecycle
 
