@@ -4740,7 +4740,7 @@ Expected: `OK (5 tests)` then `0 errors`.
 **Interfaces:**
 - Consumes: `ProviderInterface` (Task 9), `Math` (Task 3), normalized series (§4.2), `options['quantiles']` (default `[0.1, 0.5, 0.9]`), `options['granularity']` (`day|week`, default `day`), `options['non_negative']` (default `true`).
 - Produces: provider payload `['model' => 'baseline', 'horizon' => int, 'quantile_levels' => float[], 'series' => [['id', 'context_used', 'median' => float[], 'quantiles' => ['0.1' => float[], …]]]]`; errors `immens_forecast_insufficient_data` (data: `points`, `finite`) and `immens_forecast_unsupported_params`. Engine (Task 12) wraps the payload with `provider`, `fallback`, `fallback_reason`.
-- Decisions: `median` uses the same residual model at level 0.5; `context_used` = number of finite values; daily seasonality uses the `dow` covariate, weekly seasonality (period 52) requires a `woy` covariate and ≥104 points, otherwise level-only (WooSource only supplies `dow`, so weekly Woo runs level-only).
+- Decisions: `median` is the point forecast (level × seasonal factor, clamped by `non_negative`); residuals feed the quantile spread only, so `median` is NOT required to equal the `0.5` quantile row (Task 12 must read `median` as the central line and must not derive it from `quantiles['0.5']`). [Corrected during execution: the original "median uses the same residual model at level 0.5" contradicted this task's own verbatim tests — causal residual medians are non-zero bias, e.g. 13.75 vs the expected 10.0 — see Task 10 review.] `context_used` = number of finite values; daily seasonality uses the `dow` covariate, weekly seasonality (period 52) requires a `woy` covariate and ≥104 points, otherwise level-only (WooSource only supplies `dow`, so weekly Woo runs level-only).
 
 - [ ] **Step 1: Write the failing baseline tests**
 
@@ -5203,7 +5203,7 @@ final class BaselineProvider implements ProviderInterface {
 				$factor = isset( $factors[ $slot ] ) ? $factors[ $slot ] : 1.0;
 			}
 			$point    = $level * $factor;
-			$median[] = $this->spread( $point, 0.5, $resid, $empirical, $sigma, $non_negative );
+			$median[] = $non_negative ? max( 0.0, $point ) : $point;
 			foreach ( $levels as $quantile_level ) {
 				$quantiles[ Math::format_level( $quantile_level ) ][] = $this->spread( $point, $quantile_level, $resid, $empirical, $sigma, $non_negative );
 			}
