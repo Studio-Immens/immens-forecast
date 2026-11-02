@@ -51,6 +51,30 @@ final class Plugin {
 		if ( wp_doing_ajax() ) {
 			Admin\Ajax::register();
 		}
+
+		add_action( 'admin_menu', array( Admin\Page::class, 'register' ) );
+		add_action( 'admin_enqueue_scripts', array( Admin\Page::class, 'enqueue' ) );
+		add_action( 'admin_post_immens_forecast_save_settings', array( Admin\Page::class, 'handle_save' ) );
+		add_action( 'admin_post_immens_forecast_import_csv', array( Admin\Page::class, 'handle_import' ) );
+		add_action( 'admin_post_immens_forecast_delete_dataset', array( Admin\Page::class, 'handle_delete_dataset' ) );
+
+		add_filter(
+			'immens_forecast_sources',
+			static function ( array $sources ) {
+				$sources[] = new Sources\WooSource();
+				$sources[] = new Sources\ManualSource();
+				return $sources;
+			}
+		);
+
+		add_filter(
+			'immens_forecast_providers',
+			static function ( array $providers ) {
+				$providers[] = new Forecast\Providers\BaselineProvider();
+				$providers[] = new Forecast\Providers\EndpointProvider();
+				return $providers;
+			}
+		);
 	}
 
 	/**
