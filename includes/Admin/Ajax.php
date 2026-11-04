@@ -204,7 +204,10 @@ final class Ajax {
 			$patch['endpoint_timeout'] = max( Settings::TIMEOUT_MIN, min( Settings::TIMEOUT_MAX, $timeout ) );
 		}
 		if ( ! empty( $input['endpoint_token'] ) ) {
-			$crypto                      = new Crypto();
+			$crypto = new Crypto();
+			if ( ! $crypto->has_method() ) {
+				return new \WP_Error( 'immens_forecast_unsupported_params', __( 'The endpoint token cannot be encrypted on this server.', 'immens-forecast' ) );
+			}
 			$patch['endpoint_token_enc'] = $crypto->encrypt( sanitize_text_field( (string) $input['endpoint_token'] ) );
 		}
 

@@ -331,7 +331,7 @@ final class EndpointProvider implements ProviderInterface {
 
 			if ( isset( $item['quantiles'] ) && is_array( $item['quantiles'] ) ) {
 				foreach ( $item['quantiles'] as $level => $values ) {
-					$key               = is_string( $level ) ? $level : Math::format_level( (float) $level );
+					$key               = Math::format_level( (float) $level );
 					$quantiles[ $key ] = array_values( (array) $values );
 				}
 			}

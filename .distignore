@@ -1,8 +1,10 @@
 .git
+.superpowers
 .github
 .gitignore
 .gitattributes
 .distignore
+.phpunit.result.cache
 composer.json
 composer.lock
 phpcs.xml.dist
@@ -13,4 +15,6 @@ tools
 vendor
 node_modules
 build
+dist
 CHANGELOG.md
+README.md

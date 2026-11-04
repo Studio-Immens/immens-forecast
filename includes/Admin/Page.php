@@ -192,7 +192,7 @@ final class Page {
 	 */
 	public static function handle_save(): void {
 		if ( ! current_user_can( Settings::capability() ) ) {
-			wp_die( esc_html__( 'You are not allowed to edit these settings.', 'immens-forecast' ), 403 );
+			wp_die( esc_html__( 'You are not allowed to edit these settings.', 'immens-forecast' ), '', array( 'response' => 403 ) );
 		}
 
 		check_admin_referer( 'immens_forecast_save_settings' );
@@ -243,7 +243,7 @@ final class Page {
 	 */
 	private static function guard_render(): void {
 		if ( ! current_user_can( Settings::capability() ) ) {
-			wp_die( esc_html__( 'You are not allowed to view this page.', 'immens-forecast' ), 403 );
+			wp_die( esc_html__( 'You are not allowed to view this page.', 'immens-forecast' ), '', array( 'response' => 403 ) );
 		}
 	}
 
@@ -345,7 +345,7 @@ final class Page {
 	 */
 	public static function handle_import(): void {
 		if ( ! current_user_can( Settings::capability() ) ) {
-			wp_die( esc_html__( 'You are not allowed to import data.', 'immens-forecast' ), 403 );
+			wp_die( esc_html__( 'You are not allowed to import data.', 'immens-forecast' ), '', array( 'response' => 403 ) );
 		}
 
 		check_admin_referer( 'immens_forecast_import_csv' );
@@ -376,7 +376,7 @@ final class Page {
 	 */
 	public static function handle_delete_dataset(): void {
 		if ( ! current_user_can( Settings::capability() ) ) {
-			wp_die( esc_html__( 'You are not allowed to delete data.', 'immens-forecast' ), 403 );
+			wp_die( esc_html__( 'You are not allowed to delete data.', 'immens-forecast' ), '', array( 'response' => 403 ) );
 		}
 
 		check_admin_referer( 'immens_forecast_delete_dataset' );

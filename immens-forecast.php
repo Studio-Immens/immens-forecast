@@ -37,3 +37,12 @@ add_action(
 		ImmensForecast\Plugin::instance()->boot();
 	}
 );
+
+add_action(
+	'before_woocommerce_init',
+	static function () {
+		if ( class_exists( \Automattic\WooCommerce\Utilities\FeaturesUtil::class ) ) {
+			\Automattic\WooCommerce\Utilities\FeaturesUtil::declare_compatibility( 'custom_order_tables', IMMENS_FORECAST_FILE, true );
+		}
+	}
+);

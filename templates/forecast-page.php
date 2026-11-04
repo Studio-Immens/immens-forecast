@@ -29,7 +29,7 @@ $meta     = array(
 		</p></div>
 	<?php endif; ?>
 
-	<script type="application/json" id="immens-forecast-meta"><?php echo wp_json_encode( $meta ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- JSON data block. ?></script>
+	<script type="application/json" id="immens-forecast-meta"><?php echo wp_json_encode( $meta, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- JSON data block. ?></script>
 
 	<div class="immens-forecast-layout">
 		<form id="immens-forecast-form" class="immens-forecast-form">
