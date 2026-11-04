@@ -9859,17 +9859,19 @@ Append a short section at the end of this plan (below) with date, WordPress/PHP/
 
 ### Task 18: Execution log
 
-<!-- Fill during Task 17. Template:
+### Task 18: Execution log
 
-Date: YYYY-MM-DD
-Site: http://localhost:10004 (WP x.y.z, PHP x.y, WooCommerce x.y)
-- Activation: PASS/FAIL — notes
-- Baseline forecast: PASS/FAIL — notes
-- CSV round trip: PASS/FAIL — notes
-- Endpoint settings: PASS/FAIL — notes
-- Cache/lock: PASS/FAIL — notes
-- Uninstall matrix: PASS/FAIL — notes
--->
+Date: 2026-11-04
+Site: http://localhost:10004 (WP 7.1.4, PHP 8.2.12 CLI, WooCommerce 10.9.4 — HPOS enabled)
+Executed with Playwright MCP (UI) + WP-CLI `eval-file` (backend/DB); full detail in the SDD report `.superpowers/sdd/2026-11-01-immens-forecast-f1/task-17-report.md`.
+- Activation: PASS — `wp_immens_forecast_datasets` created; `immens_forecast_settings` present with `delete_data_on_uninstall => false`; the "Forecast" menu and both admin pages render.
+- Baseline forecast: PASS — `woo / revenue / day / 365 / 14` renders a 380-label line chart (History/Upper/Lower/Forecast), KPI cards and the result table; 0 JS errors; no plugin PHP notices in `debug.log`. (The recent window is genuinely all-zero on this site — real data, not a defect; sum 1232.66 from two dates.)
+- CSV round trip: PASS — imported `e2e-demo` (60 rows) from Settings; "Dataset imported." notice; it appears in Stored datasets and in the forecast dataset select; a manual run gave `PREVIOUS TOTAL 4335` = the exact sum of the last 30 values; deleting it removed it from both lists (verified server-side: `Datasets::all()` → 0).
+- Endpoint settings: PASS — URL `https://127.0.0.1:9`, timeout 5 → Test connection and Load models both show the error `cURL error 7: Failed to connect to 127.0.0.1 port 9 after 2041 ms: Could not connect to server` (`is-error`), no fatal; clearing the URL restores the "No external endpoint is configured" notice and the baseline runs locally.
+- Cache/lock: PASS — through the real AJAX path: 1st call `cached=false` (12 ms), 2nd with the same params `cached=true` (12 ms), `refresh=1` → `cached=false` (23 ms); a bad or empty nonce returns HTTP 403; with the user lock held, `immens_forecast_locked`. (The UI exposes no "cached" badge, so the flag was asserted on the AJAX response.)
+- Uninstall matrix: PASS — deactivate/reactivate keeps data; uninstall with the flag off deletes the `_transient_immens_forecast_*` rows but keeps the options and the table; with the flag on it also drops the table and deletes `immens_forecast_settings`, `immens_forecast_db_version` and `immens_forecast_import_error`. Executed by including `uninstall.php` with `WP_UNINSTALL_PLUGIN` defined, since the plugin directory also holds this repository.
+
+Non-blocking findings carried to the final review: HPOS compatibility not declared (the plugin is listed under `plugin_status=incompatible_with_feature`); the endpoint buttons surface the raw WP HTTP error string; a previous error notice is not cleared on the next successful run; weekly forecasts need at least `Series::MIN_POINTS` (16) periods, so short histories combined with weekly raise `immens_forecast_insufficient_data` with a clear localized message.
 
 ### Plan self-review
 
