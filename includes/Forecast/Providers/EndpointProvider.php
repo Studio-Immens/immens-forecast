@@ -135,7 +135,7 @@ final class EndpointProvider implements ProviderInterface {
 
 		$status = (int) wp_remote_retrieve_response_code( $response );
 		if ( $status < 200 || $status >= 300 ) {
-			return $this->http_error( $status );
+			return $this->http_error( $status, $response );
 		}
 
 		$data = json_decode( (string) wp_remote_retrieve_body( $response ), true );
@@ -245,22 +245,65 @@ final class EndpointProvider implements ProviderInterface {
 
 		return new \WP_Error(
 			$timeout ? 'immens_forecast_endpoint_timeout' : 'immens_forecast_endpoint_unreachable',
-			$message
+			$timeout
+				? __( 'The endpoint did not respond in time.', 'immens-forecast' )
+				: __( 'The endpoint could not be reached.', 'immens-forecast' ),
+			array( 'detail' => $message )
 		);
+	}
+
+	/**
+	 * Seconds from a `Retry-After` header, when the endpoint sent one.
+	 *
+	 * @param mixed $response HTTP response.
+	 * @return int|null
+	 */
+	private function retry_after( $response ): ?int {
+		if ( ! is_array( $response ) ) {
+			return null;
+		}
+
+		$value = wp_remote_retrieve_header( $response, 'retry-after' );
+		if ( is_array( $value ) ) {
+			$value = reset( $value );
+		}
+		if ( ! is_numeric( $value ) ) {
+			return null;
+		}
+
+		$seconds = (int) $value;
+
+		return $seconds > 0 ? $seconds : null;
 	}
 
 	/**
 	 * Map a non-2xx status to a WP_Error.
 	 *
-	 * @param int $status HTTP status.
+	 * @param int   $status   HTTP status.
+	 * @param mixed $response HTTP response, when available.
 	 * @return \WP_Error
 	 */
-	private function http_error( int $status ) {
+	private function http_error( int $status, $response = null ) {
+		$data = array( 'status' => $status );
+
+		if ( 429 === $status ) {
+			$retry_after = $this->retry_after( $response );
+			if ( null !== $retry_after ) {
+				$data['retry_after'] = $retry_after;
+			}
+
+			return new \WP_Error(
+				'immens_forecast_endpoint_http',
+				__( 'The endpoint is rate limiting requests. Please try again shortly.', 'immens-forecast' ),
+				$data
+			);
+		}
+
 		if ( 401 === $status || 403 === $status ) {
 			return new \WP_Error(
 				'immens_forecast_endpoint_unauthorized',
 				__( 'The endpoint rejected the credentials.', 'immens-forecast' ),
-				array( 'status' => $status )
+				$data
 			);
 		}
 
@@ -268,7 +311,7 @@ final class EndpointProvider implements ProviderInterface {
 			'immens_forecast_endpoint_http',
 			/* translators: %d: HTTP status code. */
 			sprintf( __( 'The endpoint returned HTTP %d.', 'immens-forecast' ), $status ),
-			array( 'status' => $status )
+			$data
 		);
 	}
 
@@ -288,7 +331,7 @@ final class EndpointProvider implements ProviderInterface {
 
 		$status = (int) wp_remote_retrieve_response_code( $response );
 		if ( $status < 200 || $status >= 300 ) {
-			return $this->http_error( $status );
+			return $this->http_error( $status, $response );
 		}
 
 		$data = json_decode( (string) wp_remote_retrieve_body( $response ), true );
@@ -381,7 +424,7 @@ final class EndpointProvider implements ProviderInterface {
 
 		$status = (int) wp_remote_retrieve_response_code( $response );
 		if ( $status < 200 || $status >= 300 ) {
-			return $this->http_error( $status );
+			return $this->http_error( $status, $response );
 		}
 
 		$data = json_decode( (string) wp_remote_retrieve_body( $response ), true );

@@ -205,6 +205,8 @@ final class AjaxTest extends TestCase {
 		Functions\when( 'get_transient' )->justReturn( false );
 		Functions\when( 'set_transient' )->justReturn( true );
 		Functions\when( 'delete_transient' )->justReturn( true );
+		Functions\when( 'add_option' )->justReturn( true );
+		Functions\when( 'delete_option' )->justReturn( true );
 		Functions\when( 'wp_unslash' )->returnArg();
 		Functions\when( 'sanitize_text_field' )->returnArg();
 		Functions\when( 'esc_url_raw' )->returnArg();

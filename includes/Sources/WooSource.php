@@ -129,7 +129,7 @@ final class WooSource implements SourceInterface {
 		global $wpdb;
 
 		$table = $wpdb->prefix . 'wc_order_stats';
-		if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table ) ) !== $table ) {
+		if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', esc_like( $table ) ) ) !== $table ) {
 			return null;
 		}
 

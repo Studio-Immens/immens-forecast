@@ -211,10 +211,11 @@ final class Engine {
 		$payload = $provider->forecast( $input, $params['horizon'], $options );
 
 		if ( is_wp_error( $payload ) ) {
-			$error_data      = $payload->get_error_data();
-			$error_data      = is_array( $error_data ) ? $error_data : array();
-			$fallback_code   = $payload->get_error_code();
-			$fallback_reason = $payload->get_error_message();
+			$error_data       = $payload->get_error_data();
+			$error_data       = is_array( $error_data ) ? $error_data : array();
+			$fallback_code    = $payload->get_error_code();
+			$original_message = $payload->get_error_message();
+			$fallback_reason  = $original_message;
 
 			if ( 'immens_forecast_endpoint_http' === $fallback_code && isset( $error_data['status'] ) && 429 === (int) $error_data['status'] ) {
 				$fallback_code = 'immens_forecast_rate_limited';
@@ -229,7 +230,15 @@ final class Engine {
 				}
 			}
 			if ( is_wp_error( $payload ) ) {
-				return $payload;
+				$message = ( 'immens_forecast_rate_limited' === $fallback_code && isset( $error_data['retry_after'] ) )
+					? sprintf(
+						/* translators: %d: seconds to wait before retrying. */
+						__( 'Rate limit reached. Retry in %d seconds.', 'immens-forecast' ),
+						(int) $error_data['retry_after']
+					)
+					: $original_message;
+
+				return new \WP_Error( (string) $fallback_code, $message, $error_data );
 			}
 		}
 

@@ -309,7 +309,6 @@ final class Page {
 				'label'       => $provider->get_label(),
 				'description' => $provider->get_description(),
 				'available'   => $provider->is_available(),
-				'remote'      => is_array( $capabilities ) && ! empty( $capabilities['remote'] ),
 			);
 		}
 
