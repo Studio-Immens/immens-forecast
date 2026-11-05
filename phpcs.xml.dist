@@ -1,0 +1,27 @@
+<?xml version="1.0"?>
+<ruleset name="Immens Forecast">
+	<description>Coding standards for Immens Forecast.</description>
+	<file>./immens-forecast.php</file>
+	<file>./includes</file>
+	<file>./templates</file>
+	<file>./uninstall.php</file>
+	<exclude-pattern>*/vendor/*</exclude-pattern>
+	<exclude-pattern>*/tests/*</exclude-pattern>
+	<arg name="extensions" value="php"/>
+	<arg name="colors"/>
+	<arg value="p"/>
+	<rule ref="WordPress-Core"/>
+	<rule ref="WordPress-Extra"/>
+	<rule ref="PHPCompatibilityWP"/>
+	<!-- Classes are PSR-4 autoloaded (ImmensForecast\Foo\Bar -> Foo/Bar.php), so the WordPress file-naming sniff does not apply. -->
+	<rule ref="WordPress.Files.FileName">
+		<severity>0</severity>
+	</rule>
+	<config name="testVersion" value="7.4-"/>
+	<config name="minimum_supported_wp_version" value="6.4"/>
+	<rule ref="WordPress.WP.I18n">
+		<properties>
+			<property name="text_domain" type="array" value="immens-forecast"/>
+		</properties>
+	</rule>
+</ruleset>

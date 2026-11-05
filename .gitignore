@@ -1,0 +1,14 @@
+# SDD workspace (subagent-driven-development)
+.superpowers/
+
+# Build artifacts
+dist/
+/vendor/
+/node_modules/
+/build/
+.phpunit.result.cache
+
+# Local toolchain binaries (machine-specific; see plan Global Constraints)
+/tools/composer.phar
+/tools/php-cli.ini
+/tools/php-cli.cmd

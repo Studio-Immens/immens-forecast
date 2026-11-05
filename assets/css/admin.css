@@ -1,0 +1,91 @@
+.immens-forecast-layout {
+	display: grid;
+	grid-template-columns: minmax(260px, 320px) 1fr;
+	gap: 24px;
+	margin-top: 16px;
+}
+
+.immens-forecast-form {
+	background: #fff;
+	border: 1px solid #c3c4c7;
+	border-radius: 4px;
+	padding: 16px;
+	align-self: start;
+}
+
+.immens-forecast-field {
+	margin-bottom: 12px;
+}
+
+.immens-forecast-field label {
+	display: block;
+	font-weight: 600;
+	margin-bottom: 4px;
+}
+
+.immens-forecast-field select,
+.immens-forecast-field input {
+	width: 100%;
+}
+
+.immens-forecast-checkbox {
+	display: block;
+	margin: 4px 0 12px;
+}
+
+.immens-forecast-kpis {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+	gap: 12px;
+	margin-bottom: 16px;
+}
+
+.immens-forecast-kpi {
+	background: #fff;
+	border: 1px solid #c3c4c7;
+	border-radius: 4px;
+	padding: 12px 16px;
+}
+
+.immens-forecast-kpi .immens-forecast-kpi-label {
+	color: #50575e;
+	font-size: 12px;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	display: block;
+}
+
+.immens-forecast-kpi .immens-forecast-kpi-value {
+	font-size: 20px;
+	font-weight: 600;
+}
+
+.immens-forecast-chart-box {
+	background: #fff;
+	border: 1px solid #c3c4c7;
+	border-radius: 4px;
+	padding: 16px;
+	margin-bottom: 16px;
+}
+
+.immens-forecast-table table {
+	margin-top: 4px;
+}
+
+.immens-forecast-status.is-error {
+	color: #d63638;
+}
+
+.immens-forecast-status.is-success {
+	color: #007017;
+}
+
+.immens-forecast-datasets .submitdelete {
+	color: #b32d2e;
+}
+
+@media (max-width: 960px) {
+	.immens-forecast-layout {
+		grid-template-columns: 1fr;
+	}
+}

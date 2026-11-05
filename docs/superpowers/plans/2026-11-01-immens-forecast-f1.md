@@ -101,6 +101,7 @@ Expected: `Composer version 2.x.y ...`.
 `.distignore`:
 ```
 .git
+.superpowers
 .github
 .gitignore
 .gitattributes
@@ -4324,7 +4325,7 @@ Expected: `OK (11 tests)` then `0 errors`.
 - Consumes: WordPress `apply_filters` (registry build).
 - Produces:
   - `ImmensForecast\Forecast\Providers\ProviderInterface` — `get_id()`, `get_label()`, `get_description()`, `get_capabilities()`, `is_available()`, `forecast( array $series, int $horizon, array $options )` (array|\WP_Error), `health()` (array|\WP_Error). Capability keys: `max_horizon`, `max_series`, `max_context`, `supports_multi_series`, `supports_known_covariates`, `supports_past_covariates`, `supports_categorical`, `quantile_levels` (float[]), `requires_remote` (bool).
-  - `ImmensForecast\Forecast\Providers\ProviderRegistry` — `add()`, `get()`, `has()`, `all()`, `ids()`, `available()`, static `build()` reading the `immens_forecast_providers` filter (default empty; the free plugin registers `baseline` and `endpoint` in Task 15; non-`ProviderInterface` values are ignored).
+  - `ImmensForecast\Forecast\Providers\ProviderRegistry` — `add()`, `get()`, `has()`, `all()`, `ids()`, `available()`, static `build()` reading the `immens_forecast_providers` filter (default empty; the free plugin registers `baseline` and `endpoint` in Task 14; non-`ProviderInterface` values are ignored).
 
 - [ ] **Step 1: Write the interface, the stub and the failing registry tests**
 
@@ -4739,7 +4740,7 @@ Expected: `OK (5 tests)` then `0 errors`.
 **Interfaces:**
 - Consumes: `ProviderInterface` (Task 9), `Math` (Task 3), normalized series (§4.2), `options['quantiles']` (default `[0.1, 0.5, 0.9]`), `options['granularity']` (`day|week`, default `day`), `options['non_negative']` (default `true`).
 - Produces: provider payload `['model' => 'baseline', 'horizon' => int, 'quantile_levels' => float[], 'series' => [['id', 'context_used', 'median' => float[], 'quantiles' => ['0.1' => float[], …]]]]`; errors `immens_forecast_insufficient_data` (data: `points`, `finite`) and `immens_forecast_unsupported_params`. Engine (Task 12) wraps the payload with `provider`, `fallback`, `fallback_reason`.
-- Decisions: `median` uses the same residual model at level 0.5; `context_used` = number of finite values; daily seasonality uses the `dow` covariate, weekly seasonality (period 52) requires a `woy` covariate and ≥104 points, otherwise level-only (WooSource only supplies `dow`, so weekly Woo runs level-only).
+- Decisions: `median` is the point forecast (level × seasonal factor, clamped by `non_negative`); residuals feed the quantile spread only, so `median` is NOT required to equal the `0.5` quantile row (Task 12 must read `median` as the central line and must not derive it from `quantiles['0.5']`). [Corrected during execution: the original "median uses the same residual model at level 0.5" contradicted this task's own verbatim tests — causal residual medians are non-zero bias, e.g. 13.75 vs the expected 10.0 — see Task 10 review.] `context_used` = number of finite values; daily seasonality uses the `dow` covariate, weekly seasonality (period 52) requires a `woy` covariate and ≥104 points, otherwise level-only (WooSource only supplies `dow`, so weekly Woo runs level-only).
 
 - [ ] **Step 1: Write the failing baseline tests**
 
@@ -5202,7 +5203,7 @@ final class BaselineProvider implements ProviderInterface {
 				$factor = isset( $factors[ $slot ] ) ? $factors[ $slot ] : 1.0;
 			}
 			$point    = $level * $factor;
-			$median[] = $this->spread( $point, 0.5, $resid, $empirical, $sigma, $non_negative );
+			$median[] = $non_negative ? max( 0.0, $point ) : $point;
 			foreach ( $levels as $quantile_level ) {
 				$quantiles[ Math::format_level( $quantile_level ) ][] = $this->spread( $point, $quantile_level, $resid, $empirical, $sigma, $non_negative );
 			}
@@ -8045,7 +8046,7 @@ if ( wp_doing_ajax() ) {
 - Produces:
   - `ImmensForecast\Admin\Page`: `register()` (menu top-level `immens-forecast` + submenus `immens-forecast`, `immens-forecast-settings`; extra submenus via `immens_forecast_admin_menu` filter with items `['title' => string, 'slug' => string, 'callback' => callable]`), `enqueue( string $hook )`, `render_forecast()`, `render_settings()`, `handle_save()` (admin_post `immens_forecast_save_settings`), `template_path( string $template ): string` (filter `immens_forecast_template_path`, falls back to the bundled template when the filtered path does not exist).
   - Templates receive `$args` from `render_*`: forecast page gets `sources` (id ⇒ `['label','description','metrics']`), `providers`, `defaults` (provider, horizon, quantiles, history_days), `endpoint_configured`; settings page gets `settings` (with the token replaced by a non-empty placeholder when a token exists), `providers`, `datasets`.
-- Decisions: chart + dashboard live in `admin.js` with `window.immensForecast = {ajaxUrl, nonce, i18n}`; Chart.js is bundled (no CDN, w.org-safe); the settings form posts to `admin-post.php` (`immens_forecast_save_settings`); ESC/localization via `wp_set_script_translations`.
+- Decisions: chart + dashboard live in `admin.js` with `window.immensForecast = {ajaxUrl, nonce, i18n}`; Chart.js is bundled (no CDN, w.org-safe); the settings form posts to `admin-post.php` (`immens_forecast_save_settings`); ESC/localization via `wp_set_script_translations`. This task also **registers the four bundled components** — sources `woo` and `manual`, providers `baseline` and `endpoint` — in `Plugin::boot()` via `add_filter( 'immens_forecast_sources', … )` and `add_filter( 'immens_forecast_providers', … )`, covered by a regression test in `tests/unit/PluginTest.php`. [Corrected during execution: the plan previously claimed (Task 9 interfaces) that Task 15 registers the providers, but Task 15 only writes `uninstall.php`, and `add_filter` appeared nowhere in the plan — nothing would ever have registered the sources or providers, so every forecast would have failed with `immens_forecast_source_unavailable` / `immens_forecast_provider_unavailable` and the admin dropdowns would have been empty.]
 
 - [ ] **Step 1: Write the failing admin page tests**
 
@@ -8784,6 +8785,20 @@ $settings = isset( $args['settings'] ) ? (array) $args['settings'] : array();
 			</tr>
 		</table>
 
+		<h2><?php echo esc_html__( 'Data', 'immens-forecast' ); ?></h2>
+		<table class="form-table" role="presentation">
+			<tr>
+				<th scope="row"><?php echo esc_html__( 'Uninstall', 'immens-forecast' ); ?></th>
+				<td>
+					<input type="hidden" name="delete_data_on_uninstall" value="0">
+					<label for="immens-forecast-setting-delete">
+						<input id="immens-forecast-setting-delete" name="delete_data_on_uninstall" type="checkbox" value="1" <?php checked( ! empty( $settings['delete_data_on_uninstall'] ) ); ?>>
+						<?php echo esc_html__( 'Delete all forecast data when the plugin is uninstalled.', 'immens-forecast' ); ?>
+					</label>
+				</td>
+			</tr>
+		</table>
+
 		<?php submit_button( __( 'Save settings', 'immens-forecast' ) ); ?>
 	</form>
 
@@ -9273,12 +9288,12 @@ $settings = isset( $args['settings'] ) ? (array) $args['settings'] : array();
 
 ```powershell
 New-Item -ItemType Directory -Force "assets\vendor" | Out-Null
-Invoke-WebRequest -Uri "https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.umd.min.js" -OutFile "assets\vendor\chart.umd.min.js"
+Invoke-WebRequest -Uri "https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js" -OutFile "assets\vendor\chart.umd.min.js"
 (Get-Item "assets\vendor\chart.umd.min.js").Length
 (Get-FileHash "assets\vendor\chart.umd.min.js" -Algorithm SHA256).Hash | Set-Content "assets\vendor\chart.umd.min.js.sha256"
 ```
 
-Expected: size >= 150000 bytes (Chart.js 3.9.1 UMD ≈ 200 KB). The `.sha256` file pins the artifact for CI and release packaging (Task 16). If the download is unavailable, fall back to `npm pack chart.js@3.9.1` and extract `package/dist/chart.umd.min.js`.
+Expected: size >= 150000 bytes (Chart.js 3.9.1 UMD ≈ 195 KB; observed 199560 bytes, SHA-256 `FBC45926E6B46845A0F905552A0E0B1331049BFF1115ECF94DBE0904D895E710`). The `.sha256` file pins the artifact for CI and release packaging (Task 16). If the download is unavailable, fall back to `npm pack chart.js@3.9.1` and extract `package/dist/chart.min.js`. [Corrected during execution: Chart.js 3.x ships the UMD bundle as `dist/chart.min.js`; `dist/chart.umd.min.js` is a v4 filename and 404s on the 3.9.1 tag — the local filename stays `chart.umd.min.js` as referenced by `Page::enqueue()` and Task 16.]
 
 - [ ] **Step 6: CSV import and dataset deletion handlers**
 
@@ -9348,26 +9363,97 @@ Append to `includes/Admin/Page.php` (and add `use ImmensForecast\Sources\CsvPars
 	}
 ```
 
-Then wire everything in `includes/Plugin.php` `boot()`:
+- [ ] **Step 7: Test, then register the bundled sources and providers in `boot()`**
+
+Append this regression test to `tests/unit/PluginTest.php` (it must FAIL first, before the wiring below exists):
 
 ```php
-add_action( 'admin_menu', array( Admin\Page::class, 'register' ) );
-add_action( 'admin_enqueue_scripts', array( Admin\Page::class, 'enqueue' ) );
-add_action( 'admin_post_immens_forecast_save_settings', array( Admin\Page::class, 'handle_save' ) );
-add_action( 'admin_post_immens_forecast_import_csv', array( Admin\Page::class, 'handle_import' ) );
-add_action( 'admin_post_immens_forecast_delete_dataset', array( Admin\Page::class, 'handle_delete_dataset' ) );
+	/**
+	 * Boot registers the bundled sources and providers.
+	 */
+	public function test_boot_registers_core_sources_and_providers(): void {
+		$captured = array();
+
+		Functions\when( 'load_plugin_textdomain' )->justReturn( true );
+		Functions\when( 'plugin_basename' )->justReturn( 'immens-forecast/immens-forecast.php' );
+		Functions\when( 'wp_doing_ajax' )->justReturn( false );
+		Functions\when( 'add_action' )->justReturn( null );
+		Functions\when( 'add_filter' )->alias(
+			static function ( $tag, $callback ) use ( &$captured ) {
+				$captured[ $tag ] = $callback;
+				return null;
+			}
+		);
+
+		\ImmensForecast\Plugin::instance()->boot();
+
+		self::assertArrayHasKey( 'immens_forecast_sources', $captured );
+		self::assertArrayHasKey( 'immens_forecast_providers', $captured );
+
+		$sources = call_user_func( $captured['immens_forecast_sources'], array() );
+		self::assertCount( 2, $sources );
+		self::assertInstanceOf( \ImmensForecast\Sources\WooSource::class, $sources[0] );
+		self::assertInstanceOf( \ImmensForecast\Sources\ManualSource::class, $sources[1] );
+
+		$providers = call_user_func( $captured['immens_forecast_providers'], array() );
+		self::assertCount( 2, $providers );
+		self::assertInstanceOf( \ImmensForecast\Forecast\Providers\BaselineProvider::class, $providers[0] );
+		self::assertInstanceOf( \ImmensForecast\Forecast\Providers\EndpointProvider::class, $providers[1] );
+	}
 ```
 
-- [ ] **Step 7: Run the tests, PHPCS and commit**
+```powershell
+tools\php-cli.cmd vendor\phpunit\phpunit\phpunit --configuration phpunit.xml.dist --filter test_boot_registers_core_sources_and_providers
+```
+
+Expected: FAIL — `Failed asserting that an array has the key 'immens_forecast_sources'`.
+
+Then wire everything in `includes/Plugin.php` `boot()` (append to the existing body, after the `wp_doing_ajax()` block):
+
+```php
+		add_action( 'admin_menu', array( Admin\Page::class, 'register' ) );
+		add_action( 'admin_enqueue_scripts', array( Admin\Page::class, 'enqueue' ) );
+		add_action( 'admin_post_immens_forecast_save_settings', array( Admin\Page::class, 'handle_save' ) );
+		add_action( 'admin_post_immens_forecast_import_csv', array( Admin\Page::class, 'handle_import' ) );
+		add_action( 'admin_post_immens_forecast_delete_dataset', array( Admin\Page::class, 'handle_delete_dataset' ) );
+
+		add_filter(
+			'immens_forecast_sources',
+			static function ( array $sources ) {
+				$sources[] = new Sources\WooSource();
+				$sources[] = new Sources\ManualSource();
+				return $sources;
+			}
+		);
+
+		add_filter(
+			'immens_forecast_providers',
+			static function ( array $providers ) {
+				$providers[] = new Forecast\Providers\BaselineProvider();
+				$providers[] = new Forecast\Providers\EndpointProvider();
+				return $providers;
+			}
+		);
+```
+
+```powershell
+tools\php-cli.cmd vendor\phpunit\phpunit\phpunit --configuration phpunit.xml.dist --filter test_boot_registers_core_sources_and_providers
+```
+
+Expected: `OK (1 test)`.
+
+- [ ] **Step 8: Run the tests, PHPCS and commit**
 
 ```powershell
 tools\php-cli.cmd vendor\phpunit\phpunit\phpunit --configuration phpunit.xml.dist --filter PageTest
+tools\php-cli.cmd vendor\phpunit\phpunit\phpunit --configuration phpunit.xml.dist --filter PluginTest
+tools\php-cli.cmd vendor\phpunit\phpunit\phpunit --configuration phpunit.xml.dist
 tools\php-cli.cmd vendor\squizlabs\php_codesniffer\bin\phpcs --standard=phpcs.xml.dist
 git add -A
 git commit -m "feat(admin): add forecast UI, settings screen and assets"
 ```
 
-Expected: `OK (7 tests)`, then `0 errors`.
+Expected: `OK (7 tests)` for PageTest, `OK (5 tests)` for PluginTest, full suite green (142 tests), then `0 errors`.
 
 ### Task 15: Uninstall and data lifecycle
 
@@ -9442,6 +9528,8 @@ Expected: clean commit.
 - Create: `readme.txt`
 - Create: `README.md`
 - Create: `tools/build-zip.ps1`
+- Create: `tools/build-zip.sh` (executable; `git update-index --chmod=+x tools/build-zip.sh` after staging — required by the CI `package` job)
+- Create: `languages/.gitkeep` (git cannot track an empty directory, and the plugin header declares `Domain Path: /languages`; the placeholder keeps the shipped structure consistent with Step 5's expected listing, even though no `.pot` ships in F1)
 - Create: `.github/workflows/ci.yml`
 
 **Interfaces:**
@@ -9472,8 +9560,8 @@ Immens Forecast projects future sales and any numeric time series, directly from
 * **Offline baseline model** – get probabilistic forecasts (median plus configurable quantiles) with zero external services.
 * **WooCommerce source** – forecast revenue, orders or product counts from your store history.
 * **Manual CSV datasets** – paste dated values (or bare values) and forecast them immediately.
-* **Bring your own endpoint** – connect any service exposing the timestral-api style `/forecast`, `/health` and `/models` routes with a bearer token.
-* **Caching and safety rails** – results are cached, requests are locked per series and rate-limit errors surface clearly.
+* **Bring your own endpoint** – connect any service exposing the timestral-api style `/v1/forecast`, `/health` and `/v1/models` routes with a bearer token.
+* **Caching and safety rails** – results are cached, requests are locked per user and rate-limit errors surface clearly.
 
 The plugin works standalone and does not require an account. Your data stays on your site unless you explicitly configure an external endpoint.
 
@@ -9526,7 +9614,7 @@ composer lint   # PHPCS with WordPress-Core/Extra + PHPCompatibilityWP
 powershell -ExecutionPolicy Bypass -File tools\build-zip.ps1
 ```
 
-Creates `dist/immens-forecast-<version>.zip` honouring `.distignore`.
+Creates `dist/immens-forecast-<version>.zip`. Build exclusions are defined in the build scripts, mirroring `.distignore`.
 
 ## Translations
 
@@ -9568,7 +9656,7 @@ $target = Join-Path $stage "immens-forecast"
 New-Item -ItemType Directory -Path $target -Force | Out-Null
 
 $exclude = @(
-	".git", ".github", ".gitignore", ".gitattributes", ".distignore",
+	".git", ".superpowers", ".github", ".gitignore", ".gitattributes", ".distignore",
 	"composer.json", "composer.lock", "phpcs.xml.dist", "phpunit.xml.dist",
 	"tests", "docs", "tools", "vendor", "node_modules", "build", "dist",
 	"CHANGELOG.md", "README.md"
@@ -9675,6 +9763,7 @@ mkdir -p "$stage/immens-forecast"
 
 cd "$root"
 tar --exclude='./.git' \
+	--exclude='./.superpowers' \
 	--exclude='./.github' \
 	--exclude='./.gitignore' \
 	--exclude='./.gitattributes' \
@@ -9770,17 +9859,19 @@ Append a short section at the end of this plan (below) with date, WordPress/PHP/
 
 ### Task 18: Execution log
 
-<!-- Fill during Task 17. Template:
+### Task 18: Execution log
 
-Date: YYYY-MM-DD
-Site: http://localhost:10004 (WP x.y.z, PHP x.y, WooCommerce x.y)
-- Activation: PASS/FAIL — notes
-- Baseline forecast: PASS/FAIL — notes
-- CSV round trip: PASS/FAIL — notes
-- Endpoint settings: PASS/FAIL — notes
-- Cache/lock: PASS/FAIL — notes
-- Uninstall matrix: PASS/FAIL — notes
--->
+Date: 2026-11-04
+Site: http://localhost:10004 (WP 7.1.4, PHP 8.2.12 CLI, WooCommerce 10.9.4 — HPOS enabled)
+Executed with Playwright MCP (UI) + WP-CLI `eval-file` (backend/DB); full detail in the SDD report `.superpowers/sdd/2026-11-01-immens-forecast-f1/task-17-report.md`.
+- Activation: PASS — `wp_immens_forecast_datasets` created; `immens_forecast_settings` present with `delete_data_on_uninstall => false`; the "Forecast" menu and both admin pages render.
+- Baseline forecast: PASS — `woo / revenue / day / 365 / 14` renders a 380-label line chart (History/Upper/Lower/Forecast), KPI cards and the result table; 0 JS errors; no plugin PHP notices in `debug.log`. (The recent window is genuinely all-zero on this site — real data, not a defect; sum 1232.66 from two dates.)
+- CSV round trip: PASS — imported `e2e-demo` (60 rows) from Settings; "Dataset imported." notice; it appears in Stored datasets and in the forecast dataset select; a manual run gave `PREVIOUS TOTAL 4335` = the exact sum of the last 30 values; deleting it removed it from both lists (verified server-side: `Datasets::all()` → 0).
+- Endpoint settings: PASS — URL `https://127.0.0.1:9`, timeout 5 → Test connection and Load models both show the error `cURL error 7: Failed to connect to 127.0.0.1 port 9 after 2041 ms: Could not connect to server` (`is-error`), no fatal; clearing the URL restores the "No external endpoint is configured" notice and the baseline runs locally.
+- Cache/lock: PASS — through the real AJAX path: 1st call `cached=false` (12 ms), 2nd with the same params `cached=true` (12 ms), `refresh=1` → `cached=false` (23 ms); a bad or empty nonce returns HTTP 403; with the user lock held, `immens_forecast_locked`. (The UI exposes no "cached" badge, so the flag was asserted on the AJAX response.)
+- Uninstall matrix: PASS — deactivate/reactivate keeps data; uninstall with the flag off deletes the `_transient_immens_forecast_*` rows but keeps the options and the table; with the flag on it also drops the table and deletes `immens_forecast_settings`, `immens_forecast_db_version` and `immens_forecast_import_error`. Executed by including `uninstall.php` with `WP_UNINSTALL_PLUGIN` defined, since the plugin directory also holds this repository.
+
+Non-blocking findings carried to the final review: HPOS compatibility not declared (the plugin is listed under `plugin_status=incompatible_with_feature`); the endpoint buttons surface the raw WP HTTP error string; a previous error notice is not cleared on the next successful run; weekly forecasts need at least `Series::MIN_POINTS` (16) periods, so short histories combined with weekly raise `immens_forecast_insufficient_data` with a clear localized message.
 
 ### Plan self-review
 
