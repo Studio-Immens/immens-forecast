@@ -33,6 +33,13 @@ final class EndpointProviderTest extends TestCase {
 				return isset( $response['body'] ) ? (string) $response['body'] : '';
 			}
 		);
+		Functions\when( 'wp_remote_retrieve_header' )->alias(
+			static function ( $response, $header ) {
+				$headers = ( isset( $response['headers'] ) && is_array( $response['headers'] ) ) ? $response['headers'] : array();
+				$header  = strtolower( (string) $header );
+				return isset( $headers[ $header ] ) ? $headers[ $header ] : '';
+			}
+		);
 	}
 
 	protected function tearDown(): void {
@@ -150,6 +157,53 @@ final class EndpointProviderTest extends TestCase {
 		self::assertSame( array( 'status' => 500 ), $result->get_error_data() );
 	}
 
+	public function test_forecast_429_exposes_retry_after(): void {
+		$this->configure( array( 'endpoint_url' => 'https://forecast.example.com' ) );
+		Functions\when( 'wp_remote_post' )->justReturn(
+			array(
+				'response' => array( 'code' => 429 ),
+				'headers'  => array( 'retry-after' => '42' ),
+				'body'     => '',
+			)
+		);
+
+		$result = ( new EndpointProvider() )->forecast( array( array( 'id' => 'revenue', 'values' => array( 1.0 ) ) ), 2, array() );
+
+		self::assertSame( 'immens_forecast_endpoint_http', $result->get_error_code() );
+		self::assertSame( 'The endpoint is rate limiting requests. Please try again shortly.', $result->get_error_message() );
+		self::assertSame( array( 'status' => 429, 'retry_after' => 42 ), $result->get_error_data() );
+	}
+
+	public function test_forecast_429_without_retry_after(): void {
+		$this->configure( array( 'endpoint_url' => 'https://forecast.example.com' ) );
+		Functions\when( 'wp_remote_post' )->justReturn(
+			array(
+				'response' => array( 'code' => 429 ),
+				'body'     => '',
+			)
+		);
+
+		$result = ( new EndpointProvider() )->forecast( array( array( 'id' => 'revenue', 'values' => array( 1.0 ) ) ), 2, array() );
+
+		self::assertSame( 'immens_forecast_endpoint_http', $result->get_error_code() );
+		self::assertSame( array( 'status' => 429 ), $result->get_error_data() );
+	}
+
+	public function test_forecast_429_ignores_non_numeric_retry_after(): void {
+		$this->configure( array( 'endpoint_url' => 'https://forecast.example.com' ) );
+		Functions\when( 'wp_remote_post' )->justReturn(
+			array(
+				'response' => array( 'code' => 429 ),
+				'headers'  => array( 'retry-after' => 'soon' ),
+				'body'     => '',
+			)
+		);
+
+		$result = ( new EndpointProvider() )->forecast( array( array( 'id' => 'revenue', 'values' => array( 1.0 ) ) ), 2, array() );
+
+		self::assertSame( array( 'status' => 429 ), $result->get_error_data() );
+	}
+
 	public function test_forecast_bad_response(): void {
 		$this->configure( array( 'endpoint_url' => 'https://forecast.example.com' ) );
 		Functions\when( 'wp_remote_post' )->justReturn(
@@ -171,6 +225,8 @@ final class EndpointProviderTest extends TestCase {
 		$result = ( new EndpointProvider() )->forecast( array( array( 'id' => 'revenue', 'values' => array( 1.0 ) ) ), 2, array() );
 
 		self::assertSame( 'immens_forecast_endpoint_timeout', $result->get_error_code() );
+		self::assertSame( 'The endpoint did not respond in time.', $result->get_error_message() );
+		self::assertSame( array( 'detail' => 'cURL error 28: Operation timed out after 60001 milliseconds' ), $result->get_error_data() );
 	}
 
 	public function test_forecast_unreachable_error(): void {
@@ -180,6 +236,8 @@ final class EndpointProviderTest extends TestCase {
 		$result = ( new EndpointProvider() )->forecast( array( array( 'id' => 'revenue', 'values' => array( 1.0 ) ) ), 2, array() );
 
 		self::assertSame( 'immens_forecast_endpoint_unreachable', $result->get_error_code() );
+		self::assertSame( 'The endpoint could not be reached.', $result->get_error_message() );
+		self::assertSame( array( 'detail' => 'cURL error 6: Could not resolve host' ), $result->get_error_data() );
 	}
 
 	public function test_forecast_sends_json_body_and_headers(): void {
