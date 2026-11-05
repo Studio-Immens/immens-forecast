@@ -29,6 +29,11 @@ final class WooSourceTest extends TestCase {
 		$this->wpdb      = new FakeWpdb();
 		$GLOBALS['wpdb'] = $this->wpdb;
 		Functions\when( '__' )->returnArg();
+		Functions\when( 'esc_like' )->alias(
+			static function ( $text ) {
+				return addcslashes( (string) $text, '_%\\' );
+			}
+		);
 		Functions\when( 'current_time' )->justReturn( '2026-11-03' );
 		Functions\when( 'wc_prices_include_tax' )->justReturn( false );
 	}
@@ -146,6 +151,29 @@ final class WooSourceTest extends TestCase {
 		self::assertSame( array( '2026-11-01', '2026-11-02', '2026-11-03' ), $payload['dates'] );
 		self::assertSame( array( 1.0, 1.0, 0.0 ), $payload['values'] );
 		self::assertSame( array( '2026-11-04', '2026-11-05' ), $payload['future_dates'] );
+	}
+
+	public function test_stats_lookup_escapes_like_wildcards(): void {
+		$this->seed_stats_rows();
+		$escaped = array();
+		Functions\when( 'esc_like' )->alias(
+			static function ( $text ) use ( &$escaped ) {
+				$escaped[] = (string) $text;
+				return addcslashes( (string) $text, '_%\\' );
+			}
+		);
+
+		$payload = ( new WooSource() )->get_series(
+			array(
+				'metric'        => 'orders',
+				'granularity'   => 'day',
+				'history_start' => '2026-11-01',
+				'horizon'       => 1,
+			)
+		);
+
+		self::assertSame( array( 'wp_wc_order_stats' ), $escaped );
+		self::assertSame( array( '2026-11-01', '2026-11-02', '2026-11-03' ), $payload['dates'] );
 	}
 
 	public function test_week_granularity_buckets_from_iso_monday(): void {

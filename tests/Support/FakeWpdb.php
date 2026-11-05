@@ -137,6 +137,8 @@ final class FakeWpdb {
 	 */
 	public function get_var( $query ) {
 		$query = (string) $query;
+		// MySQL LIKE treats `\_` and `\%` as literals: mirror that for pattern matches.
+		$query = str_replace( array( '\\_', '\\%' ), array( '_', '%' ), $query );
 		if ( false !== stripos( $query, 'show tables' ) ) {
 			foreach ( $this->tables as $table ) {
 				if ( false !== stripos( $query, $table ) ) {
