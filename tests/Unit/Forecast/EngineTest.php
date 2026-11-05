@@ -214,6 +214,8 @@ final class EngineTest extends TestCase {
 		Functions\when( 'get_transient' )->justReturn( false );
 		Functions\when( 'set_transient' )->justReturn( true );
 		Functions\when( 'delete_transient' )->justReturn( true );
+		Functions\when( 'add_option' )->justReturn( true );
+		Functions\when( 'delete_option' )->justReturn( true );
 		Functions\when( 'sanitize_key' )->alias(
 			static function ( $value ) {
 				return preg_replace( '/[^a-z0-9_\-]/', '', strtolower( (string) $value ) );
@@ -344,11 +346,74 @@ final class EngineTest extends TestCase {
 			$this->make_source( $this->series_payload() ),
 			array( 'fake' => $this->make_provider( 'fake', $this->provider_payload(), $calls ) )
 		);
-		Functions\when( 'get_transient' )->justReturn( 1 );
+		Functions\when( 'get_option' )->alias(
+			static function ( $key, $default = false ) {
+				return ( false !== strpos( (string) $key, 'lock' ) ) ? time() + 30 : array();
+			}
+		);
 
 		$result = Engine::run( $this->params(), 7 );
 
 		self::assertSame( 'immens_forecast_locked', $result->get_error_code() );
 		self::assertSame( 0, $calls->n );
+	}
+
+	public function test_run_returns_original_error_when_fallback_fails(): void {
+		$calls = new \stdClass();
+		$calls->n = 0;
+		$baseline = new \stdClass();
+		$baseline->n = 0;
+		$this->register(
+			$this->make_source( $this->series_payload() ),
+			array(
+				'fake'     => $this->make_provider( 'fake', new \WP_Error( 'immens_forecast_endpoint_http', 'Too many requests.', array( 'status' => 429, 'retry_after' => 42 ) ), $calls ),
+				'baseline' => $this->make_provider( 'baseline', new \WP_Error( 'immens_forecast_insufficient_data', 'Not enough data.' ), $baseline ),
+			)
+		);
+
+		$result = Engine::run( $this->params() );
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'immens_forecast_rate_limited', $result->get_error_code() );
+		self::assertSame( 'Rate limit reached. Retry in 42 seconds.', $result->get_error_message() );
+		self::assertSame( array( 'status' => 429, 'retry_after' => 42 ), $result->get_error_data() );
+		self::assertSame( 1, $calls->n );
+		self::assertSame( 1, $baseline->n );
+	}
+
+	public function test_run_returns_a_plain_error_when_fallback_fails_without_retry_after(): void {
+		$calls = new \stdClass();
+		$calls->n = 0;
+		$baseline = new \stdClass();
+		$baseline->n = 0;
+		$this->register(
+			$this->make_source( $this->series_payload() ),
+			array(
+				'fake'     => $this->make_provider( 'fake', new \WP_Error( 'immens_forecast_endpoint_http', 'Too many requests.', array( 'status' => 429 ) ), $calls ),
+				'baseline' => $this->make_provider( 'baseline', new \WP_Error( 'immens_forecast_insufficient_data', 'Not enough data.' ), $baseline ),
+			)
+		);
+
+		$result = Engine::run( $this->params() );
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'immens_forecast_rate_limited', $result->get_error_code() );
+		self::assertSame( 'Too many requests.', $result->get_error_message() );
+		self::assertSame( array( 'status' => 429 ), $result->get_error_data() );
+	}
+
+	public function test_run_returns_rate_limited_when_baseline_is_missing(): void {
+		$calls = new \stdClass();
+		$calls->n = 0;
+		$this->register(
+			$this->make_source( $this->series_payload() ),
+			array( 'fake' => $this->make_provider( 'fake', new \WP_Error( 'immens_forecast_endpoint_http', 'Too many requests.', array( 'status' => 429 ) ), $calls ) )
+		);
+
+		$result = Engine::run( $this->params() );
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'immens_forecast_rate_limited', $result->get_error_code() );
+		self::assertSame( array( 'status' => 429 ), $result->get_error_data() );
 	}
 }

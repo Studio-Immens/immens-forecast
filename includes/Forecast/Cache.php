@@ -100,17 +100,28 @@ final class Cache {
 	/**
 	 * Acquire the per-user lock.
 	 *
+	 * The lock is an option (autoload disabled) so that `add_option()`, which
+	 * returns false when the row already exists, provides an atomic
+	 * compare-and-set: two concurrent requests can never both win. Transients
+	 * cannot do this because `set_transient()` always overwrites.
+	 *
 	 * @param int $user_id User id.
 	 * @param int $ttl     Lock lifetime.
 	 * @return bool True when the caller now owns the lock.
 	 */
 	public static function acquire_lock( int $user_id, int $ttl = self::LOCK_TTL ): bool {
-		$key = self::lock_key( $user_id );
-		if ( false !== get_transient( $key ) ) {
-			return false;
+		$key     = self::lock_key( $user_id );
+		$expires = time() + max( 1, $ttl );
+
+		$current = get_option( $key, false );
+		if ( is_numeric( $current ) ) {
+			if ( (int) $current > time() ) {
+				return false;
+			}
+			delete_option( $key );
 		}
-		set_transient( $key, 1, max( 1, $ttl ) );
-		return true;
+
+		return (bool) add_option( $key, $expires, '', 'no' );
 	}
 
 	/**
@@ -120,6 +131,6 @@ final class Cache {
 	 * @return void
 	 */
 	public static function release_lock( int $user_id ): void {
-		delete_transient( self::lock_key( $user_id ) );
+		delete_option( self::lock_key( $user_id ) );
 	}
 }

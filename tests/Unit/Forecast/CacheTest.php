@@ -80,17 +80,58 @@ final class CacheTest extends TestCase {
 		$this->addToAssertionCount( 1 );
 	}
 
-	public function test_lock_acquire_and_release(): void {
+	public function test_lock_acquire_uses_atomic_add_option(): void {
 		self::assertSame( 'immens_forecast_lock_7', Cache::lock_key( 7 ) );
 
-		Functions\when( 'get_transient' )->justReturn( false );
-		Functions\when( 'set_transient' )->justReturn( true );
+		Functions\when( 'get_option' )->justReturn( false );
+		Functions\expect( 'add_option' )
+			->once()
+			->with( 'immens_forecast_lock_7', \Mockery::type( 'int' ), '', 'no' )
+			->andReturn( true );
+
 		self::assertTrue( Cache::acquire_lock( 7 ) );
 
-		Functions\when( 'get_transient' )->justReturn( 1 );
+		// The Mockery expectation above is the assertion for this test.
+		$this->addToAssertionCount( 1 );
+	}
+
+	public function test_lock_acquire_fails_when_add_option_reports_existing(): void {
+		Functions\when( 'get_option' )->justReturn( false );
+		Functions\when( 'add_option' )->justReturn( false );
+
+		self::assertFalse( Cache::acquire_lock( 7 ) );
+	}
+
+	public function test_lock_acquire_keeps_a_live_lock(): void {
+		Functions\when( 'get_option' )->justReturn( time() + 30 );
+		Functions\expect( 'add_option' )->never();
+
 		self::assertFalse( Cache::acquire_lock( 7 ) );
 
-		Functions\expect( 'delete_transient' )->once()->with( 'immens_forecast_lock_7' )->andReturn( true );
+		// The Mockery expectation above is the assertion for this test.
+		$this->addToAssertionCount( 1 );
+	}
+
+	public function test_lock_acquire_replaces_a_stale_lock(): void {
+		Functions\expect( 'get_option' )->once()->with( 'immens_forecast_lock_7', false )->andReturn( time() - 5 );
+		Functions\expect( 'delete_option' )->once()->with( 'immens_forecast_lock_7' )->andReturn( true );
+		Functions\expect( 'add_option' )
+			->once()
+			->with( 'immens_forecast_lock_7', \Mockery::type( 'int' ), '', 'no' )
+			->andReturn( true );
+
+		self::assertTrue( Cache::acquire_lock( 7 ) );
+
+		// The Mockery expectations above are the assertions for this test.
+		$this->addToAssertionCount( 1 );
+	}
+
+	public function test_lock_release_deletes_the_option(): void {
+		Functions\expect( 'delete_option' )->once()->with( 'immens_forecast_lock_7' )->andReturn( true );
+
 		Cache::release_lock( 7 );
+
+		// The Mockery expectation above is the assertion for this test.
+		$this->addToAssertionCount( 1 );
 	}
 }
